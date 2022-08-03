@@ -171,6 +171,9 @@ jobs:
       run: |
         echo ::set-output name=pid::$(cat pid.tmp) 
 
+    - name: Log in to registry
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+
     - name: Generate Function Diff List
       id: generate-matrix
       run: |-
