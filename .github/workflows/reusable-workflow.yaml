@@ -174,8 +174,7 @@ jobs:
     - name: Generate Function Diff List
       id: generate-matrix
       run: |-
-        docker build . --tag=buildimage
-        docker run -v $(pwd)/output:/output buildimage
+        docker run -v $(pwd)/output:/output -v $(pwd)/src:/src ghcr.io/silver-labs/lab-builder:v1.0.0
         gcloud auth configure-docker --quiet
         gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
         gcloud artifacts docker tags list us-central1-docker.pkg.dev/lab-operations/${{ steps.vars-pid.outputs.pid }}/ --format=json | jq 'group_by(.version) | map({function: (.[0].image | split("/")[-1]), version: ("sha256:" + (.[0].version | split("sha256:")[1])), tags: [.[] | .tag | split("tags/")[1]]}) | map({function, version, latest: .tags | contains(["latest"]), tags: .tags}) | map(select(.latest) | {function, tag: (.tags | map(select(. | contains("latest")|not)))[0], github: false})' > ./output/registry.json
