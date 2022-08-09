@@ -90,7 +90,7 @@ jobs:
 
     # Checkout Terraform Modules
     - name: Checkout Terraform Modules
-      if: stepsgclouyd init.cache-projectid.outputs.cache-hit != 'true'
+      if: steps.cache-projectid.outputs.cache-hit != 'true'
       uses: actions/checkout@v2
       with:
         repository: silver-labs/ag-terraform-modules
