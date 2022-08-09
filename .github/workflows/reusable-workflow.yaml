@@ -69,8 +69,8 @@ jobs:
       run: |
         mkdir output
         echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
-        docker pull ghcr.io/silver-labs/lab-builder:v1.1.6
-        docker run -v $(pwd)/output:/output -v $(pwd)/src:/src -v $(pwd):/tf ghcr.io/silver-labs/lab-builder:v1.1.6
+        docker pull ghcr.io/silver-labs/lab-builder:v1.1.7
+        docker run -v $(pwd)/output:/output -v $(pwd)/src:/src -v $(pwd):/tf ghcr.io/silver-labs/lab-builder:v1.1.7
   
     # Gain oauthtoken for GCP SA user
     - name: Authorize to GCP
@@ -178,7 +178,7 @@ jobs:
         gcloud auth configure-docker --quiet
         gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
         gcloud artifacts docker tags list us-central1-docker.pkg.dev/lab-operations/${{ steps.vars-pid.outputs.pid }}/ --format=json | jq 'group_by(.version) | map({function: (.[0].image | split("/")[-1]), version: ("sha256:" + (.[0].version | split("sha256:")[1])), tags: [.[] | .tag | split("tags/")[1]]}) | map({function, version, latest: .tags | contains(["latest"]), tags: .tags}) | map(select(.latest) | {function, tag: (.tags | map(select(. | contains("latest")|not)))[0], github: false})' > ./output/registry.json
-        jq -R -s -c -n --argfile o1 ./output/functions.config.json --argfile o2 ./output/registry.json '$o1 +  $o2 | group_by(.function) | map({function: .[0].function, github: ( map( select( .github == true) | .tag)[0]), gcp: ( map( select( .github == true | not) | .tag)[0])}) | map(select(.github == .gcp| not)) | map(.function+"#"+.github)' > ./output/buildlist.tmp
+        jq -R -s -c -n --argfile o1 ./output/aggregate.config.silver --argfile o2 ./output/registry.json '$o1 +  $o2 | group_by(.function) | map({function: .[0].function, github: ( map( select( .github == true) | .tag)[0]), gcp: ( map( select( .github == true | not) | .tag)[0])}) | map(select(.github == .gcp| not)) | map(.function+"#"+.github)' > ./output/buildlist.tmp
         jq -R -s -c -n --argfile o1 ./output/buildlist.tmp '$o1 + ["Build"]' > ./output/buildlist.final.tmp
         echo ""::set-output name=functions::$(cat ./output/buildlist.final.tmp)""
       shell: bash  
