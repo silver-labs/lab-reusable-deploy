@@ -152,6 +152,7 @@ jobs:
       if: steps.cache-projectid.outputs.cache-hit != 'true'
       run: |
         terraform output -raw project_id > pid.tmp
+        terraform output -raw dataflow_template_location > ./output/dataflow_template_location.tmp
       env:
         TF_VAR_GCP_ACCESS_TOKEN: ${{steps.auth.outputs.access_token}}
         TF_VAR_GCP_BILLING: ${{secrets.TFADMIN_GCP_BILLING_ACCOUNT_ID}}
