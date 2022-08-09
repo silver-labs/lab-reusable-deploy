@@ -118,11 +118,6 @@ jobs:
         TF_VAR_AGLABS_NPM: '${{secrets.NPMRC_PACKAGE_DEPLOY_CONFIG}}'
         TF_VAR_ENV_LABEL: '${{inputs.ENV_LABEL}}'
 
-    # Checks that all Terraform configuration files adhere to a canonical format
-    - name: Terraform Format 
-      if: steps.cache-projectid.outputs.cache-hit != 'true'
-      run: terraform fmt 
-
     # Generates an execution plan for Terraform
     - name: Terraform Plan
       if: steps.cache-projectid.outputs.cache-hit != 'true'
@@ -379,10 +374,6 @@ jobs:
         TF_VAR_SECRETS: '${{ toJson(secrets) }}'
         TF_VAR_AGLABS_NPM: '${{secrets.NPMRC_PACKAGE_DEPLOY_CONFIG}}'
         TF_VAR_ENV_LABEL: '${{inputs.ENV_LABEL}}'
-
-    # Checks that all Terraform configuration files adhere to a canonical format
-    - name: Terraform Format
-      run: terraform fmt 
 
     # Generates an execution plan for Terraform
     - name: Terraform Plan
