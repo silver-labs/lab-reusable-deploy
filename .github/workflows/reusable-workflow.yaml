@@ -254,7 +254,7 @@ jobs:
       run: |
         echo "sourcepath=$(cat ./output/functions.config.json | jq -c -r '.[] | select( .name == env.imagename ) | .path')" >> $GITHUB_ENV
         echo "imagetype=$(cat ./output/functions.config.json | jq -c -r '.[] | select( .name == env.imagename ) | .type')" >> $GITHUB_ENV
-        echo "imagesubtype=$(cat ./output/functions.config.json | jq -c -r '.[] | select( .name == env.imagename ) | .subtype')" >> $GITHUB_ENV
+        echo "imagesubtype=$(cat ./output/functions.config.json | jq -c -r '.[] | select( .name == env.imagename ) | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
 
 
     # Gain oauthtoken for GCP SA user
@@ -305,6 +305,14 @@ jobs:
         tags: |
           "us-central1-docker.pkg.dev/lab-operations/${{needs.setup.outputs.projectid}}/${{env.imagename}}:latest"
           "us-central1-docker.pkg.dev/lab-operations/${{needs.setup.outputs.projectid}}/${{env.imagename}}:${{env.imagechecksum}}"
+
+    - id: dataflow_template_create
+      if: matrix.function != 'Build' && startsWith(env.imagetype,'dataflow')
+      name: Create Dataflow Template Config
+      run: |
+          (cd src; cd ${{env.sourcepath}} gcloud dataflow flex-template build gs://${{needs.setup.outputs.projectid}}-dataflow-templates/${{env.imagename}}.json --image "us-central1-docker.pkg.dev/lab-operations/${{needs.setup.outputs.projectid}}/${{env.imagename}}:${{env.imagechecksum}}" --sdk-language "${{env.imagesubtype}}" --metadata-file "metadata.json")
+
+
 
   terraform:
     name: 'Terraform'
