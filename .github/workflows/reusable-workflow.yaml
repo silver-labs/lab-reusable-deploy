@@ -324,14 +324,6 @@ jobs:
         name: functionsconfig
         path: output
 
-    - name: echo nongateway configuration
-      run: cat ./output/nongateway.functions.config.json
-      shell: bash
-      
-    - name: echo gateway configuration
-      run: cat ./output/gateway.functions.config.json
-      shell: bash
-
     # Checkout Terraform Modules
     - name: Checkout Terraform Modules
       uses: actions/checkout@v2
