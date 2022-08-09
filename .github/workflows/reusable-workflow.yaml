@@ -65,12 +65,12 @@ jobs:
       run: | 
         echo ::set-output name=postfix::$(echo "${{env.postfix}}" | base64)
 
-    - name: json-files
+    - name: AGLABS Builder
       run: |
         mkdir output
-        echo -en "[]" > ./output/nongateway.functions.config.json
-        echo -en "[]" > ./output/gateway.functions.config.json
-      shell: bash
+        echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+        docker pull ghcr.io/silver-labs/lab-builder:v1.1.0
+        docker run -v $(pwd)/output:/output -v $(pwd)/src:/src -v $(pwd):/tf ghcr.io/silver-labs/lab-builder:v1.1.0
   
     # Gain oauthtoken for GCP SA user
     - name: Authorize to GCP
@@ -90,7 +90,7 @@ jobs:
 
     # Checkout Terraform Modules
     - name: Checkout Terraform Modules
-      if: steps.cache-projectid.outputs.cache-hit != 'true'
+      if: stepsgclouyd init.cache-projectid.outputs.cache-hit != 'true'
       uses: actions/checkout@v2
       with:
         repository: silver-labs/ag-terraform-modules
@@ -126,7 +126,7 @@ jobs:
     # Generates an execution plan for Terraform
     - name: Terraform Plan
       if: steps.cache-projectid.outputs.cache-hit != 'true'
-      run: terraform plan -target=google_project.project -target=google_artifact_registry_repository.repo
+      run: terraform plan -target=google_project.project -target=google_artifact_registry_repository.repo -target=google_storage_bucket.dataflow_template
       env:
         TF_VAR_GCP_ACCESS_TOKEN: ${{steps.auth.outputs.access_token}}
         TF_VAR_GCP_BILLING: ${{secrets.TFADMIN_GCP_BILLING_ACCOUNT_ID}}
@@ -142,7 +142,7 @@ jobs:
       # Note: It is recommended to set up a required "strict" status check in your repository for "Terraform Cloud". See the documentation on "strict" required status checks for more information: https://help.github.com/en/github/administering-a-repository/types-of-required-status-checks
     - name: Terraform Apply
       if: steps.cache-projectid.outputs.cache-hit != 'true'
-      run: terraform apply -target=google_project.project -target=google_artifact_registry_repository.repo -auto-approve
+      run: terraform apply -target=google_project.project -target=google_artifact_registry_repository.repo -target=google_storage_bucket.dataflow_template -auto-approve
       env:
         TF_VAR_GCP_ACCESS_TOKEN: ${{steps.auth.outputs.access_token}}
         TF_VAR_GCP_BILLING: ${{secrets.TFADMIN_GCP_BILLING_ACCOUNT_ID}}
@@ -172,14 +172,9 @@ jobs:
       run: |
         echo ::set-output name=pid::$(cat pid.tmp) 
 
-    - name: Log in to registry
-      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
-
     - name: Generate Function Diff List
       id: generate-matrix
       run: |-
-        docker pull ghcr.io/silver-labs/lab-builder:v1.0.0
-        docker run -v $(pwd)/output:/output -v $(pwd)/src:/src ghcr.io/silver-labs/lab-builder:v1.0.0
         gcloud auth configure-docker --quiet
         gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
         gcloud artifacts docker tags list us-central1-docker.pkg.dev/lab-operations/${{ steps.vars-pid.outputs.pid }}/ --format=json | jq 'group_by(.version) | map({function: (.[0].image | split("/")[-1]), version: ("sha256:" + (.[0].version | split("sha256:")[1])), tags: [.[] | .tag | split("tags/")[1]]}) | map({function, version, latest: .tags | contains(["latest"]), tags: .tags}) | map(select(.latest) | {function, tag: (.tags | map(select(. | contains("latest")|not)))[0], github: false})' > ./output/registry.json
@@ -217,9 +212,7 @@ jobs:
       with:
         name: functionsconfig
         path: |
-          ./output/functions.config.json
-          ./output/gateway.functions.config.json
-          ./output/nongateway.functions.config.json
+          ./output/
         
   build:
     if: ${{ needs.setup.outputs.functions != '[]' && needs.setup.outputs.functions != ''}}
@@ -253,10 +246,12 @@ jobs:
       env:
         fname: ${{ matrix.function }}
 
-    - name: Create get sourcepath
+    - name: Create get image details
       if: matrix.function != 'Build'
       run: |
         echo "sourcepath=$(cat ./output/functions.config.json | jq -c -r '.[] | select( .name == env.imagename ) | .path')" >> $GITHUB_ENV
+        echo "imagetype=$(cat ./output/functions.config.json | jq -c -r '.[] | select( .name == env.imagename ) | .type')" >> $GITHUB_ENV
+        echo "imagesubtype=$(cat ./output/functions.config.json | jq -c -r '.[] | select( .name == env.imagename ) | .subtype')" >> $GITHUB_ENV
 
 
     # Gain oauthtoken for GCP SA user
@@ -289,8 +284,6 @@ jobs:
       run: |
         docker load --input /tmp/common-image.tar
         docker image ls -a
-
-
 
     - name: npm add .npm to src
       if: matrix.function != 'Build'
