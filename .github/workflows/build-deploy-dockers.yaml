@@ -310,5 +310,5 @@ jobs:
         - name: Create Dataflow Template Config
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') }}
           run: |
-            (cd src; cd ${{env.sourcepath}}; gcloud dataflow flex-template build gs://${{ secrets.GCP_PROJECT_ID }}-dataflow-templates/${{env.imagename}}.json --image "us-central1-docker.pkg.dev/${{secrets.GCP_PROJECT_ID}}/github-tmp/${{matrix.function}}:${{env.tag}}" --sdk-language "${{env.imagesubtype}}" --metadata-file "metadata.json")
+            (cd src; cd ${{env.sourcepath}}; gcloud dataflow flex-template build gs://${{ secrets.GCP_PROJECT_ID }}-dataflow-templates/${{env.imagename}}.json --image "us-central1-docker.pkg.dev/${{secrets.GCP_PROJECT_ID}}/github-tmp/${{matrix.function}}:${{env.tag}}" --sdk-language "${{env.imagesubtype}}" --metadata-file "${{matrix.function}}.json")
 
