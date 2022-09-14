@@ -27,7 +27,6 @@ jobs:
       id-token: 'write'
     environment: 
       name: ${{inputs.environment}}
-      url: https://console.cloud.google.com/home/dashboard?project=${{ secrets.GCP_PROJECT_ID }}
 
     steps:
       - name: Checkout repository
@@ -99,7 +98,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: 
       name: ${{inputs.environment}}
-      url: https://console.cloud.google.com/home/dashboard?project=${{ secrets.GCP_PROJECT_ID }}
 
 
     permissions:
@@ -217,7 +215,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: 
       name: ${{inputs.environment}}
-      url: https://console.cloud.google.com/home/dashboard?project=${{ secrets.GCP_PROJECT_ID }}
     env:
       tf_version: '1.2.8'
       tg_version: 'v0.38.9'
