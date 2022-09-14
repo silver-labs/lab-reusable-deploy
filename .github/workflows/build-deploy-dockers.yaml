@@ -287,7 +287,7 @@ jobs:
           uses: datadrivers/terragrunt-action@v0
           with:
             aws-role-to-assume: "idunno"
-            terragrunt-working-directory: "./terragrunt/apps/${{ env.sourcepath }} "
+            terragrunt-working-directory: "./terragrunt/apps/${{ env.sourcepath }}"
             terraform-version: ${{ env.tf_version }}
             terragrunt-version: ${{ env.tg_version }}
             use-gcloud-auth: "true"
