@@ -1,0 +1,311 @@
+name: Create and Deploy a Docker Images
+
+on:
+  workflow_call:
+      inputs:
+        environment:
+          required: true
+          description: "Environment to run the deploy on"
+          type: string
+
+concurrency: ${{github.repository}}-${{ inputs.environment }}-createdeployimages
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: "${{github.event.inputs.srcDirectory}}"
+
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+          functions: ${{ steps.identify-functions.outputs.functions }}
+          files_exists: ${{ steps.check_common_docker.outputs.files_exists }}
+    permissions:
+      contents: read
+      packages: read
+      id-token: 'write'
+    environment: ${{inputs.environment}}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: AGLABS Builder
+        id: identify-functions
+        run: |
+          mkdir output
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+          docker pull ghcr.io/silver-labs/lab-builder:v1.1.7
+          docker run -v $(pwd)/output:/output -v $(pwd)/src:/src -v $(pwd):/tf ghcr.io/silver-labs/lab-builder:v1.1.7
+          echo ""::set-output name=functions::$(jq -R -c -n --argfile o1 ./output/aggregate.config.silver '$o1 | map(.name)' | jq -c '. + ["build"]')""
+
+      # Gain oauthtoken for GCP SA user
+      - name: Authorize to GCP
+        id: auth
+        uses: 'google-github-actions/auth@v0'
+        with:
+            workload_identity_provider: ${{ secrets.wif_provider }} # this is the output provider_name from the TF module
+            service_account: ${{ secrets.BUILD_USER_EMAIL }}  # this is a SA email configured using the TF module with access to YOUR-GCS-BUCKET
+            token_format: access_token
+
+      - name: GCP Artifact Discovery
+        id: gad
+        run: |-
+            gcloud auth configure-docker --quiet
+            gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+            gcloud artifacts docker tags list us-central1-docker.pkg.dev/${{secrets.GCP_PROJECT_ID}}/github-tmp  --format=json | jq 'group_by(.version) | map( {function: (.[0].image | split("/")[-1]),  version: ("sha256:" + (.[0].version | split("sha256:")[1])), tags: [.[] | .tag | split("tags/")[1]]} ) |  map( {function, version, latest: .tags | contains(["latest"]), tags: .tags}) |  map( select(.latest) |  {function, version, tag: (.tags | map(select(. | contains("latest")|not)))[0], delete: false} ) +  map( select(.latest | not) | {function, version, tag: (.tags | map(select(. | contains("latest")|not)))[0],  delete: true} )' > ./output/images.json
+
+      - name: Check file existence
+        id: check_common_docker
+        uses: andstor/file-existence-action@v1
+        with:
+          files: "src/common/Dockerfile"
+
+      - name: Set up Docker Buildx
+        if: steps.check_common_docker.outputs.files_exists == 'true'
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and push
+        if: steps.check_common_docker.outputs.files_exists == 'true'
+        uses: docker/build-push-action@v2
+        with:
+          context: ./src/common/
+          file: ./src/common/Dockerfile
+          tags: common-image:latest
+          outputs: type=docker,dest=/tmp/common-image.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: common-image
+          path: /tmp/common-image.tar
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: functionsconfig
+          path: |
+            ./output/
+
+  build:
+    if: ${{ needs.setup.outputs.functions != '[]' && needs.setup.outputs.functions != ''}}
+    needs: [setup]
+    strategy:
+      matrix:
+        function: ${{ fromJSON(needs.setup.outputs.functions) }}
+    name: ${{ matrix.function }} => Build
+    runs-on: ubuntu-latest
+    environment: ${{inputs.environment}}
+
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: 'write'
+
+
+    steps:
+        - name: Checkout
+          if: matrix.function != 'Build'
+          uses: actions/checkout@v3
+
+        - uses: actions/download-artifact@v2
+          if: matrix.function != 'Build'
+          with:
+            name: functionsconfig
+            path: output
+
+        - run: |
+            echo "repowithoutorg="${repo/silver-labs\//}"" >> $GITHUB_ENV
+          env:
+            repo: ${{github.repository}}
+
+        - uses: octokit/request-action@v2.x
+          if: matrix.function != 'Build'
+          id: get_image_versions
+          with:
+            route: GET /orgs/{owner}/packages/container/{repo}%2F{function}/versions
+            #route: GET /user/packages/container/{repo}%2F{function}/versions
+            owner: silver-labs
+            repo: ${{env.repowithoutorg}}
+            function: ${{ matrix.function }}
+          env:
+            GITHUB_TOKEN: ${{ secrets.GHA_ORG_PACKAGE_ACCESS_TOKEN }}
+        - name: create-json
+          id: create-json
+          uses: jsdaniell/create-json@1.1.2
+          if: matrix.function != 'Build'
+          with:
+            name: "containers.json"
+            json: ${{steps.get_image_versions.outputs.data}}
+            dir: './output/'
+     #   - run: echo -e "${{ toJson(steps.get_image_versions.outputs.data) }}" > ./output/containers.json 
+     #     if: matrix.function != 'Build'
+     #     shell: bash
+        - run: echo -n "[]" > ./output/containers.json
+          if: ${{ matrix.function != 'Build' &&  failure()  }}
+        
+        - name: Create get image details
+          if: matrix.function != 'Build'
+          run: |
+            echo "sourcepath=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .path')" >> $GITHUB_ENV
+            echo "imagetype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .type')" >> $GITHUB_ENV
+            echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
+            echo "tag=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .tag')" >> $GITHUB_ENV
+
+        - run: |
+            echo "containerSHA=$(jq -R -c -n -r --argfile o1 ./output/containers.json '$o1 | .[] | select(.metadata.package_type == "container") | select(.metadata.container.tags[] | contains("${{ env.tag }}")) | .name')" >> $GITHUB_ENV
+          if: matrix.function != 'Build'
+
+        - name: Download artifact
+          if: ${{matrix.function != 'Build' && needs.setup.outputs.files_exists == 'true' && !startsWith(env.containerSHA,'sha')}} 
+          uses: actions/download-artifact@v2
+          with:
+            name: common-image
+            path: /tmp
+
+        - name: npm add .npm to src
+          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
+          run: echo -en "$npmrc" >| ./src/${{env.sourcepath}}/.npmrc \;
+          shell: bash
+          env:
+            npmrc : ${{secrets.NPMRC_PACKAGE_DEPLOY_CONFIG}}
+
+        - name: Log in to the Container registry
+          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
+          uses: docker/login-action@v2.0.0
+          with:
+            registry: ${{ env.REGISTRY }}
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+        - name: Load Docker image
+          if: ${{matrix.function != 'Build' && needs.setup.outputs.files_exists == 'true' && !startsWith(env.containerSHA,'sha')}} 
+          run: |
+            docker load --input /tmp/common-image.tar
+
+        - name: Extract metadata (tags, labels) for Docker
+          id: meta
+          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
+          uses: docker/metadata-action@v4.0.1
+          with:
+            images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.function }}
+            tags: |
+              type=raw,${{env.tag}}
+              
+        - name: Build and push Docker image
+          uses: docker/build-push-action@master
+          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
+          with:
+            context: ./src/${{env.sourcepath}}
+            file: ./src/${{env.sourcepath}}/Dockerfile
+            push: true
+            tags: ${{ steps.meta.outputs.tags }}
+            labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    if: ${{ needs.setup.outputs.functions != '[]' && needs.setup.outputs.functions != ''}}
+    needs: [setup, build]
+    strategy:
+      matrix:
+        function: ${{ fromJSON(needs.setup.outputs.functions) }}
+    name: ${{ matrix.function }} => Deploy
+    runs-on: ubuntu-latest
+    environment: ${{inputs.environment}}
+    env:
+      tf_version: '1.2.8'
+      tg_version: 'v0.38.9'
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: 'write'
+
+
+    steps:
+        - name: Checkout
+          if: matrix.function != 'Build'
+          uses: actions/checkout@v3
+
+        - uses: actions/download-artifact@v2
+          with:
+            name: functionsconfig
+            path: output
+
+        - name: Create get image details
+          if: matrix.function != 'Build'
+          run: |
+            echo "repowithoutorg="${repo/silver-labs\//}"" >> $GITHUB_ENV
+            echo "sourcepath=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .path')" >> $GITHUB_ENV
+            echo "imagetype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .type')" >> $GITHUB_ENV
+            echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
+            echo "tag=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .tag')" >> $GITHUB_ENV
+          env: 
+            repo: ${{github.repository}}
+
+        - name: Already Deployed
+          if: matrix.function != 'Build'
+          run: |
+            echo "alreadydeployed=$(cat ./output/images.json | jq --arg functionname ${{ matrix.function }} --arg tagmatch ${{ env.tag }} '. + [{"delete": false,"function": $functionname, "tag": "testtag" }] | .[] | select(.delete == false) | select(.function == $functionname) | if (.tag == $tagmatch) then true else empty end')"  >> $GITHUB_ENV
+
+        - name: Log in to the Github Container registry
+          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' }} 
+          uses: docker/login-action@v2.0.0
+          with:
+            registry: ${{ env.REGISTRY }}
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Gain oauthtoken for GCP SA user
+        - name: Authorize to GCP
+          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' }} 
+          id: auth
+          uses: 'google-github-actions/auth@v0'
+          with:
+            workload_identity_provider: ${{ secrets.wif_provider }} # this is the output provider_name from the TF module
+            service_account: ${{ secrets.BUILD_USER_EMAIL }}  # this is a SA email configured using the TF module with access to YOUR-GCS-BUCKET
+            token_format: access_token
+
+        - name: Log in to the GCP Container registry
+          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' }} 
+          uses: docker/login-action@v2.0.0
+          with:
+            registry: us-central1-docker.pkg.dev
+            username: oauth2accesstoken
+            password: ${{steps.auth.outputs.access_token}}
+
+        - name: Push Image to multiple registries
+          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' }} 
+          uses: akhilerm/tag-push-action@v2.0.0
+          with:
+            src: ${{ env.REGISTRY }}/silver-labs/${{env.repowithoutorg}}/${{matrix.function}}:${{env.tag}}
+            dst: |
+               us-central1-docker.pkg.dev/${{secrets.GCP_PROJECT_ID}}/github-tmp/${{matrix.function}}:${{env.tag}}
+               us-central1-docker.pkg.dev/${{secrets.GCP_PROJECT_ID}}/github-tmp/${{matrix.function}}:latest
+        - name: Deploy Cloudrun
+          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && env.imagetype == 'cloudrun'}} 
+          uses: datadrivers/terragrunt-action@v0
+          with:
+            aws-role-to-assume: "idunno"
+            terragrunt-working-directory: "./terragrunt/${{ env.sourcepath }}"
+            terraform-version: ${{ env.tf_version }}
+            terragrunt-version: ${{ env.tg_version }}
+            use-gcloud-auth: "true"
+            gcp-workload-identity-provider: "projects/298552945291/locations/global/workloadIdentityPools/gh-wif-pool/providers/lab-ops-wif-provider"
+            gcp-service-account-email: ${{secrets.BUILD_USER_EMAIL}}
+            gcp-project-id: "lab-operations"
+            skip-caches: "true"
+            use-ssh-agent: "true"
+            ssh-private-key: ${{ secrets.TG_GH_AGLABS_TF_MODULES_SSH_DEPLOY_KEY }}
+            terragrunt-command: |
+              terragrunt plan --terragrunt-non-interactive
+          env:
+            state_encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY}}
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+            crimage:        "us-central1-docker.pkg.dev/${{secrets.GCP_PROJECT_ID}}/github-tmp/${{matrix.function}}:${{env.tag}}"
+        - name: Create Dataflow Template Config
+          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') }}
+          run: |
+            (cd src; cd ${{env.sourcepath}}; gcloud dataflow flex-template build gs://${{ secrets.GCP_PROJECT_ID }}-dataflow-templates/${{env.imagename}}.json --image "us-central1-docker.pkg.dev/${{secrets.GCP_PROJECT_ID}}/github-tmp/${{matrix.function}}:${{env.tag}}" --sdk-language "${{env.imagesubtype}}" --metadata-file "metadata.json")
+
