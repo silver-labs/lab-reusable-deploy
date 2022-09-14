@@ -287,7 +287,7 @@ jobs:
           uses: datadrivers/terragrunt-action@v0
           with:
             aws-role-to-assume: "idunno"
-            terragrunt-working-directory: "./terragrunt/${{ env.sourcepath }}"
+            terragrunt-working-directory: "./terragrunt"
             terraform-version: ${{ env.tf_version }}
             terragrunt-version: ${{ env.tg_version }}
             use-gcloud-auth: "true"
@@ -298,7 +298,7 @@ jobs:
             use-ssh-agent: "true"
             ssh-private-key: ${{ secrets.TG_GH_AGLABS_TF_MODULES_SSH_DEPLOY_KEY }}
             terragrunt-command: |
-              terragrunt plan --terragrunt-non-interactive
+              terragrunt plan ./apps/${{ env.sourcepath }} --terragrunt-non-interactive 
           env:
             state_encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY}}
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
