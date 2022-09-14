@@ -291,7 +291,7 @@ jobs:
             terraform-version: ${{ env.tf_version }}
             terragrunt-version: ${{ env.tg_version }}
             use-gcloud-auth: "true"
-            gcp-workload-identity-provider: "projects/298552945291/locations/global/workloadIdentityPools/gh-wif-pool/providers/lab-ops-wif-provider"
+            gcp-workload-identity-provider:  ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER}}
             gcp-service-account-email: ${{secrets.BUILD_USER_EMAIL}}
             gcp-project-id: "lab-operations"
             skip-caches: "true"
