@@ -25,7 +25,9 @@ jobs:
       contents: read
       packages: read
       id-token: 'write'
-    environment: ${{inputs.environment}}
+    environment: 
+      name: ${{inputs.environment}}
+      url: https://console.cloud.google.com/home/dashboard?project=${{ secrets.GCP_PROJECT_ID }}
 
     steps:
       - name: Checkout repository
@@ -95,7 +97,9 @@ jobs:
         function: ${{ fromJSON(needs.setup.outputs.functions) }}
     name: ${{ matrix.function }} => Build
     runs-on: ubuntu-latest
-    environment: ${{inputs.environment}}
+    environment: 
+      name: ${{inputs.environment}}
+      url: https://console.cloud.google.com/home/dashboard?project=${{ secrets.GCP_PROJECT_ID }}
 
 
     permissions:
@@ -211,7 +215,9 @@ jobs:
         function: ${{ fromJSON(needs.setup.outputs.functions) }}
     name: ${{ matrix.function }} => Deploy
     runs-on: ubuntu-latest
-    environment: ${{inputs.environment}}
+    environment: 
+      name: ${{inputs.environment}}
+      url: https://console.cloud.google.com/home/dashboard?project=${{ secrets.GCP_PROJECT_ID }}
     env:
       tf_version: '1.2.8'
       tg_version: 'v0.38.9'
