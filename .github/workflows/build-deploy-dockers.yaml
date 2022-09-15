@@ -216,6 +216,7 @@ jobs:
             labels: ${{ steps.meta.outputs.labels }}
 
         - name: Cache dockerslim
+          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
           id: cache-dockerslim
           uses: actions/cache@v2
           with:
@@ -226,7 +227,7 @@ jobs:
                 $runner.OS -dockerslim-cache-
         
         - name: Download DockerSlim
-          if: steps.cache-dockerslim.outputs.cache-hit != 'true'
+          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') && steps.cache-dockerslim.outputs.cache-hit != 'true'}}
           run: |
             		wget https://downloads.dockerslim.com/releases/1.37.3/dist_linux.tar.gz
             		tar zxvf dist_linux.tar.gz
