@@ -300,8 +300,8 @@ jobs:
             dst: |
                us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:${{env.tag}}
                us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:latest
-        - name: Deploy Cloudrun
-          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && env.imagetype == 'cloudrun'}} 
+        - name: Deploy Terragrunt
+          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true'}} 
           uses: datadrivers/terragrunt-action@v0
           with:
             aws-role-to-assume: "idunno"
