@@ -33,7 +33,14 @@ jobs:
     steps:
         - name: Checkout
           uses: actions/checkout@v3
-
+        - name: Load Environments
+          id: loadenv
+          run: |
+            echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s '. | add' *.json)"
+        - name: Echo Environments
+          id: loadenv
+          run: |
+            echo ${{ steps.loadenv.outputs.envconfig }}
         - name: Deploy
           uses: datadrivers/terragrunt-action@v0
           with:
