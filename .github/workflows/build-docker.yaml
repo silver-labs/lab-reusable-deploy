@@ -1,0 +1,22 @@
+name: Docker builder
+on:
+  release:
+    types: [published]
+    
+
+jobs:
+  build-svc:
+    name: "Python3.9 Dataflow Snowflake"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        name: Checkout repository
+
+      - uses: pmorelli92/github-container-registry-build-push@2.0.0
+        name: Build and Publish latest service image
+        with:
+          github-push-secret: ${{secrets.GITHUB_TOKEN}}
+          docker-image-name: df-sf-python39
+          docker-image-tag: ${{ github.event.release.tag_name }} # optional
+          dockerfile-path: ./BeamDataflowSnowflakeFlextemplates/python39/Dockerfile # optional
+          build-context: ./BeamDataflowSnowflakeFlextemplates/python39 # optional
