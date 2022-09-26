@@ -215,7 +215,7 @@ jobs:
             push: true
             tags: ${{ steps.meta.outputs.tags }}
             labels: ${{ steps.meta.outputs.labels }}
-            ssh: default=${{ secrets.DEPLOY_G2NOTESEXTRACTOR}}
+            ssh: "${{ secrets.DEPLOY_G2NOTESEXTRACTOR}}"
 
   deploy:
     if: ${{ needs.setup.outputs.functions != '[]' && needs.setup.outputs.functions != ''}}
