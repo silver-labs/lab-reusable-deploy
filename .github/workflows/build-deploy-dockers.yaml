@@ -205,7 +205,12 @@ jobs:
             images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.function }}
             tags: |
               type=raw,${{env.tag}}
-              
+        - name: webfactory/ssh-agent
+          uses: webfactory/ssh-agent@v0.5.4
+          with:
+            ssh-private-key: |
+              ${{ secrets.DEPLOY_G2NOTESEXTRACTOR }}
+
         - name: Build and push Docker image
           uses: docker/build-push-action@master
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
@@ -215,6 +220,8 @@ jobs:
             push: true
             tags: ${{ steps.meta.outputs.tags }}
             labels: ${{ steps.meta.outputs.labels }}
+            ssh: |
+              default=${{ env.SSH_AUTH_SOCK }}
 
   deploy:
     if: ${{ needs.setup.outputs.functions != '[]' && needs.setup.outputs.functions != ''}}
