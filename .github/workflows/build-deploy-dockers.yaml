@@ -215,13 +215,14 @@ jobs:
           uses: docker/build-push-action@master
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
           with:
+            ssh: |
+              default=${{ env.SSH_AUTH_SOCK }}
             context: ./src/${{env.sourcepath}}
             file: ./src/${{env.sourcepath}}/Dockerfile
             push: true
             tags: ${{ steps.meta.outputs.tags }}
             labels: ${{ steps.meta.outputs.labels }}
-            ssh: |
-              default=${{ env.SSH_AUTH_SOCK }}
+
 
   deploy:
     if: ${{ needs.setup.outputs.functions != '[]' && needs.setup.outputs.functions != ''}}
