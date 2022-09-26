@@ -218,7 +218,7 @@ jobs:
             push: true
             tags: ${{ steps.meta.outputs.tags }}
             labels: ${{ steps.meta.outputs.labels }}
-            ssh: ${{ secrets.ssh-key-list }}
+            ssh: default=${{ secrets.ssh-key-list }}
 
   deploy:
     if: ${{ needs.setup.outputs.functions != '[]' && needs.setup.outputs.functions != ''}}
