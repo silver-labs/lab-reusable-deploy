@@ -7,6 +7,10 @@ on:
           required: true
           description: "Environment to run the deploy on"
           type: string
+      secrets:
+        ssh-key-list:
+          required: false
+
 
 concurrency: ${{github.repository}}-${{ inputs.environment }}-createdeployimages
 
@@ -214,6 +218,7 @@ jobs:
             push: true
             tags: ${{ steps.meta.outputs.tags }}
             labels: ${{ steps.meta.outputs.labels }}
+            ssh: ${{ secrets.ssh-key-list }}
 
   deploy:
     if: ${{ needs.setup.outputs.functions != '[]' && needs.setup.outputs.functions != ''}}
