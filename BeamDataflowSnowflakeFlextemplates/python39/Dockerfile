@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM gcr.io/dataflow-templates-base/python3-template-launcher-base:20220418_RC00
+FROM gcr.io/dataflow-templates-base/python39-template-launcher-base@sha256:778a596703e6582afa5ea291ae3d9b85baa75ecd6fec4d762a636e658666ac67
 
 
 RUN apt-get update && apt-get install -y software-properties-common \
