@@ -343,7 +343,7 @@ jobs:
             file: ./src/${{env.sourcepath}}/${{env.launcherimage}}
             push: true
             tags: |
-                us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:latest
+                us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}-launcher:latest
         - name: Create Dataflow Template Config - no launcher
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') }}
           run: |
