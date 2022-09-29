@@ -206,6 +206,7 @@ jobs:
             tags: |
               type=raw,${{env.tag}}
         - name: webfactory/ssh-agent
+          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
           uses: webfactory/ssh-agent@v0.5.4
           with:
             ssh-private-key: |
@@ -334,11 +335,19 @@ jobs:
             GCP_PROJECT_ID: ${{ fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}
             CONFIG_VARS: ${{ steps.loadenv.outputs.envconfig }}
             crimage:        "us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:${{env.tag}}"
+        - name: webfactory/ssh-agent
+          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha')  && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker')}} 
+          uses: webfactory/ssh-agent@v0.5.4
+          with:
+            ssh-private-key: |
+              ${{ secrets.DEPLOY_G2NOTESEXTRACTOR }}
         - id: push-dataflow-launcher
           name: Tag Docker image and push to Google Artifact Registry
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker') }}
           uses: docker/build-push-action@v2
           with:
+            ssh: |
+              default=${{ env.SSH_AUTH_SOCK }}
             context: ./src/${{env.sourcepath}}
             file: ./src/${{env.sourcepath}}/${{env.launcherimage}}
             push: true
