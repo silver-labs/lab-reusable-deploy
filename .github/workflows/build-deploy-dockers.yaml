@@ -354,7 +354,7 @@ jobs:
             tags: |
                 us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}-launcher:latest
         - name: Create Dataflow Template Config - no launcher
-          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') }}
+          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && !startsWith(env.launcherimage,'Docker') }}
           run: |
             (cd src; cd ${{env.sourcepath}}; gcloud dataflow flex-template build gs://${{ fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id }}-dataflow-templates/${{matrix.function}}.json --image "us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:${{env.tag}}" --sdk-language "${{env.imagesubtype}}" --metadata-file "metadata.json")
         - name: Create Dataflow Template Config - launcher 
