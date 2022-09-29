@@ -268,6 +268,7 @@ jobs:
             echo "sourcepath=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .path')" >> $GITHUB_ENV
             echo "imagetype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .type')" >> $GITHUB_ENV
             echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
+            echo "launcherimage=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | if .launcher then .launcher else empty end')" >> $GITHUB_ENV        
             echo "tag=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .tag')" >> $GITHUB_ENV
           env: 
             repo: ${{github.repository}}
@@ -334,8 +335,21 @@ jobs:
             GCP_PROJECT_ID: ${{ fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}
             CONFIG_VARS: ${{ steps.loadenv.outputs.envconfig }}
             crimage:        "us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:${{env.tag}}"
-        - name: Create Dataflow Template Config
+        - id: push-dataflow-launcher
+          name: Tag Docker image and push to Google Artifact Registry
+          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker') }}
+          uses: docker/build-push-action@v2
+          with:
+            push: true
+            tags: |
+                us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:latest
+        - name: Create Dataflow Template Config - no launcher
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') }}
           run: |
             (cd src; cd ${{env.sourcepath}}; gcloud dataflow flex-template build gs://${{ fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id }}-dataflow-templates/${{matrix.function}}.json --image "us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:${{env.tag}}" --sdk-language "${{env.imagesubtype}}" --metadata-file "metadata.json")
+        - name: Create Dataflow Template Config - launcher 
+          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow')  && startsWith(env.launcherimage,'Docker')}}
+          run: |
+            (cd src; cd ${{env.sourcepath}}; gcloud dataflow flex-template build gs://${{ fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id }}-dataflow-templates/${{matrix.function}}.json --image "us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}-launcher:latest" --sdk-language "${{env.imagesubtype}}" --metadata-file "metadata.json")
+
 
