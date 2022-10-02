@@ -344,7 +344,7 @@ jobs:
         - id: push-dataflow-launcher
           name: Tag Docker image and push to Google Artifact Registry
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker') }}
-          uses: docker/build-push-action@v2
+          uses: silver-labs/docker-building-action@main
           with:
             ssh: |
               default=${{ env.SSH_AUTH_SOCK }}
