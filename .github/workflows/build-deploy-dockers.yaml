@@ -215,6 +215,7 @@ jobs:
           uses: silver-labs/docker-building-action@main
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
           with:
+            buildName: ${{matrix.function}}
             ssh: |
               default=${{ env.SSH_AUTH_SOCK }}
             context: ./src/${{env.sourcepath}}
@@ -346,6 +347,7 @@ jobs:
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker') }}
           uses: silver-labs/docker-building-action@main
           with:
+            buildName: ${{matrix.function}}-launcher
             ssh: |
               default=${{ env.SSH_AUTH_SOCK }}
             context: ./src/${{env.sourcepath}}
