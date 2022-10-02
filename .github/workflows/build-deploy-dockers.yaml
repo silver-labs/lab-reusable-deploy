@@ -212,7 +212,7 @@ jobs:
             ssh-private-key: |
               ${{ secrets.DEPLOY_G2NOTESEXTRACTOR }}
         - name: Build and push Docker image
-          uses: docker/build-push-action@v3.1.1
+          uses: silver-labs/docker-building-action@main
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
           with:
             ssh: |
