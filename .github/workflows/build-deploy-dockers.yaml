@@ -96,6 +96,7 @@ jobs:
             ./output/
 
   build:
+    continue-on-error: true
     if: ${{ needs.setup.outputs.functions != '[]' && needs.setup.outputs.functions != ''}}
     needs: [setup]
     strategy:
@@ -134,7 +135,9 @@ jobs:
           env:
             repo: ${{github.repository}}
 
-        - uses: octokit/request-action@v2.x
+        - name: get-images-versions
+          uses: octokit/request-action@v2.x
+          continue-on-error: true
           if: matrix.function != 'Build'
           id: get_image_versions
           with:
@@ -148,7 +151,7 @@ jobs:
         - name: create-json
           id: create-json
           uses: jsdaniell/create-json@1.1.2
-          if: matrix.function != 'Build'
+          if: ${{ matrix.function != 'Build' && steps.get-image-versions.conclusion == 'success'}}
           with:
             name: "containers.json"
             json: ${{steps.get_image_versions.outputs.data}}
@@ -156,8 +159,9 @@ jobs:
      #   - run: echo -e "${{ toJson(steps.get_image_versions.outputs.data) }}" > ./output/containers.json 
      #     if: matrix.function != 'Build'
      #     shell: bash
-        - run: echo -n "[]" > ./output/containers.json
-          if: ${{ matrix.function != 'Build' &&  failure()  }}
+        - name: mock-json
+          run: echo -n "[]" > ./output/containers.json
+          if: ${{ matrix.function != 'Build' && steps.get-image-versions.conclusion == 'failure'}}
         
         - name: Create get image details
           if: matrix.function != 'Build'
@@ -169,7 +173,7 @@ jobs:
 
         - run: |
             echo "containerSHA=$(jq -R -c -n -r --argfile o1 ./output/containers.json '$o1 | .[] | select(.metadata.package_type == "container") | select(.metadata.container.tags[] | contains("${{ env.tag }}")) | .name')" >> $GITHUB_ENV
-          if: matrix.function != 'Build'
+          if: matrix.function != 'Build' 
 
         - name: Download artifact
           if: ${{matrix.function != 'Build' && needs.setup.outputs.files_exists == 'true' && !startsWith(env.containerSHA,'sha')}} 
