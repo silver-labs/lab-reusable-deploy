@@ -151,7 +151,7 @@ jobs:
         - name: create-json
           id: create-json
           uses: jsdaniell/create-json@1.1.2
-          if: ${{ matrix.function != 'Build' && steps.get-image-versions.conclusion == 'success'}}
+          if: ${{ matrix.function != 'Build' && steps.get-images-versions.conclusion == 'success'}}
           with:
             name: "containers.json"
             json: ${{steps.get_image_versions.outputs.data}}
@@ -161,7 +161,7 @@ jobs:
      #     shell: bash
         - name: mock-json
           run: echo -n "[]" > ./output/containers.json
-          if: ${{ matrix.function != 'Build' && steps.get-image-versions.conclusion == 'failure'}}
+          if: ${{ matrix.function != 'Build' && steps.get-images-versions.conclusion == 'failure'}}
         
         - name: Create get image details
           if: matrix.function != 'Build'
