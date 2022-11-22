@@ -223,6 +223,8 @@ jobs:
             buildName: ${{matrix.function}}
             ssh: |
               default=${{ env.SSH_AUTH_SOCK }}
+            load: |
+              /tmp/common-image.tar
             context: ./src/${{env.sourcepath}}
             file: ./src/${{env.sourcepath}}/Dockerfile
             push: true
