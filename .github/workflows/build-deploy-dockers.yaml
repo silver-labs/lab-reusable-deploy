@@ -224,7 +224,7 @@ jobs:
             ssh: |
               default=${{ env.SSH_AUTH_SOCK }}
             build-contexts: |
-              common-image=./src/common
+              common-image:latest=./src/common
             context: ./src/${{env.sourcepath}}
             file: ./src/${{env.sourcepath}}/Dockerfile
             push: true
