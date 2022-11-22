@@ -21,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
           functions: ${{ steps.identify-functions.outputs.functions }}
-          files_exists: ${{ steps.check_common_docker.outputs.files_exists }}
     permissions:
       contents: read
       packages: read
@@ -62,33 +61,6 @@ jobs:
             gcloud auth configure-docker --quiet
             gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
             gcloud artifacts docker tags list us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp  --format=json | jq 'group_by(.version) | map( {function: (.[0].image | split("/")[-1]),  version: ("sha256:" + (.[0].version | split("sha256:")[1])), tags: [.[] | .tag | split("tags/")[1]]} ) |  map( {function, version, latest: .tags | contains(["latest"]), tags: .tags}) |  map( select(.latest) |  {function, version, tag: (.tags | map(select(. | contains("latest")|not)))[0], delete: false} ) +  map( select(.latest | not) | {function, version, tag: (.tags | map(select(. | contains("latest")|not)))[0],  delete: true} )' > ./output/images.json
-
-      - name: Check file existence
-        id: check_common_docker
-        uses: andstor/file-existence-action@v1
-        with:
-          files: "src/common/Dockerfile"
-
-      - name: Set up Docker Buildx
-        if: steps.check_common_docker.outputs.files_exists == 'true'
-        uses: docker/setup-buildx-action@v2
-
-      - name: Build and push
-        if: steps.check_common_docker.outputs.files_exists == 'true'
-        uses: silver-labs/docker-building-action@main
-        with:
-          buildName: "commonimage"
-          context: ./src/common/
-          file: ./src/common/Dockerfile
-          tags: common-image:latest
-          outputs: type=docker,dest=/tmp/common-image.tar
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: common-image
-          path: /tmp/common-image.tar
-
       - uses: actions/upload-artifact@v2
         with:
           name: functionsconfig
@@ -174,14 +146,6 @@ jobs:
         - run: |
             echo "containerSHA=$(jq -R -c -n -r --argfile o1 ./output/containers.json '$o1 | .[] | select(.metadata.package_type == "container") | select(.metadata.container.tags[] | contains("${{ env.tag }}")) | .name')" >> $GITHUB_ENV
           if: matrix.function != 'Build' 
-
-        - name: Download artifact
-          if: ${{matrix.function != 'Build' && needs.setup.outputs.files_exists == 'true' && !startsWith(env.containerSHA,'sha')}} 
-          uses: actions/download-artifact@v2
-          with:
-            name: common-image
-            path: /tmp
-
         - name: npm add .npm to src
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
           run: echo -en "$npmrc" >| ./src/${{env.sourcepath}}/.npmrc \;
@@ -196,12 +160,6 @@ jobs:
             registry: ${{ env.REGISTRY }}
             username: ${{ github.actor }}
             password: ${{ secrets.GITHUB_TOKEN }}
-
-        - name: Load Docker image
-          if: ${{matrix.function != 'Build' && needs.setup.outputs.files_exists == 'true' && !startsWith(env.containerSHA,'sha')}} 
-          run: |
-            docker load --input /tmp/common-image.tar
-
         - name: Extract metadata (tags, labels) for Docker
           id: meta
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
@@ -216,9 +174,26 @@ jobs:
           with:
             ssh-private-key: |
               ${{ secrets.DEPLOY_G2NOTESEXTRACTOR }}
+        - name: Check file existence
+          id: check_common_docker
+          uses: andstor/file-existence-action@v1
+          with:
+            files: "src/common/Dockerfile"
         - name: Build and push Docker image
           uses: silver-labs/docker-building-action@main
-          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
+          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') && steps.check_common_docker.outputs.files_exists == 'false'}} 
+          with:
+            buildName: ${{matrix.function}}
+            ssh: |
+              default=${{ env.SSH_AUTH_SOCK }}
+            context: ./src/${{env.sourcepath}}
+            file: ./src/${{env.sourcepath}}/Dockerfile
+            push: true
+            tags: ${{ steps.meta.outputs.tags }}
+            labels: ${{ steps.meta.outputs.labels }}
+        - name: Build and push Docker image
+          uses: silver-labs/docker-building-action@main
+          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') && steps.check_common_docker.outputs.files_exists == 'true'}} 
           with:
             buildName: ${{matrix.function}}
             ssh: |
