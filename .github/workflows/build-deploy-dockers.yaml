@@ -135,11 +135,9 @@ jobs:
           run: |
             echo -n "[]" > ./output/containers.json
           if: ${{ matrix.function != 'Build' && steps.get-images-versions.conclusion == 'failure'}}
-
         - name: Extract Config Silver Attributes
           if: matrix.function != 'Build'
           run: |
-            cat ./output/containers.json
             echo "sourcepath=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .path')" >> $GITHUB_ENV
             echo "imagetype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .type')" >> $GITHUB_ENV
             echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
@@ -159,6 +157,11 @@ jobs:
             name: "build_secrets.json"
             json: ${{ toJson(secrets ) }}
             dir: './output/'
+        - uses: actions/upload-artifact@v2
+          with:
+            name: jsonoutputs
+            path: |
+              ./output/
         - name: Filter Build Secrets.json & Merge Build Envs
           if: matrix.function != 'Build'
           run: |
@@ -229,10 +232,7 @@ jobs:
             labels: ${{ steps.meta.outputs.labels }}
             secret-files: |
               "buildsecrets=./output/build.json"
-        - name: Cleanup build secrets
-          if: matrix.function != 'Build'
-          run: |
-            rm -f ./output/*.json
+
   
 
 
