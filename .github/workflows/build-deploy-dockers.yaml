@@ -122,7 +122,7 @@ jobs:
             GITHUB_TOKEN: ${{ secrets.GHA_ORG_PACKAGE_ACCESS_TOKEN }}
         - name: create-json
           id: create-json
-          uses: jsdaniell/create-json@1.1.2
+          uses: jsdaniell/create-json@v1.2.1
           if: ${{ matrix.function != 'Build' && steps.get-images-versions.conclusion == 'success'}}
           with:
             name: "containers.json"
@@ -134,18 +134,29 @@ jobs:
         - name: mock-json
           run: echo -n "[]" > ./output/containers.json
           if: ${{ matrix.function != 'Build' && steps.get-images-versions.conclusion == 'failure'}}
-        
-        - name: Create get image details
+        - name: create-json
+          id: create-json
+          uses: jsdaniell/create-json@v1.2.1
+          with:
+            name: "secrets.json"
+            json: ${{ toJson(secrets) }}
+            dir: './output/'
+        - name: Extract Config Silver Attributes
           if: matrix.function != 'Build'
           run: |
             echo "sourcepath=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .path')" >> $GITHUB_ENV
             echo "imagetype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .type')" >> $GITHUB_ENV
             echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
             echo "tag=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .tag')" >> $GITHUB_ENV
-
-        - run: |
+            echo "buildsecrets=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .buildSettings.buildSecrets | select (.!=null)  | join(",")')" >> $GITHUB_ENV 
+        - name: Get containerSHA 
+          if: matrix.function != 'Build'
+          run: |
             echo "containerSHA=$(jq -R -c -n -r --argfile o1 ./output/containers.json '$o1 | .[] | select(.metadata.package_type == "container") | select(.metadata.container.tags[] | contains("${{ env.tag }}")) | .name')" >> $GITHUB_ENV
-          if: matrix.function != 'Build' 
+        - name: Filter Secrets.json 
+          if: matrix.function != 'Build'
+          run: |
+            jq -R -c -n --arg v ${{env.buildsecrets}} --argfile o1 ./output/secrets.json '[$o1 | to_entries | .[] | select( .key  | IN($v|split(",")[])) | .]' > ./output/secrets.json
         - name: npm add .npm to src
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
           run: echo -en "$npmrc" >| ./src/${{env.sourcepath}}/.npmrc \;
@@ -191,6 +202,8 @@ jobs:
             push: true
             tags: ${{ steps.meta.outputs.tags }}
             labels: ${{ steps.meta.outputs.labels }}
+            secret-files: |
+              "buildsecrets=./output/secrets.json"
         - name: Build and push Docker image
           uses: silver-labs/docker-building-action@main
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') && steps.check_common_docker.outputs.files_exists == 'true'}} 
@@ -205,6 +218,8 @@ jobs:
             push: true
             tags: ${{ steps.meta.outputs.tags }}
             labels: ${{ steps.meta.outputs.labels }}
+            secret-files: |
+              "buildsecrets=./output/secrets.json"
 
   
 
