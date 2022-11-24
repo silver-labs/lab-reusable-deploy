@@ -134,13 +134,7 @@ jobs:
         - name: mock-json
           run: echo -n "[]" > ./output/containers.json
           if: ${{ matrix.function != 'Build' && steps.get-images-versions.conclusion == 'failure'}}
-        - name: create-json
-          id: create-json
-          uses: jsdaniell/create-json@v1.2.1
-          with:
-            name: "secrets.json"
-            json: ${{ toJson(secrets) }}
-            dir: './output/'
+
         - name: Extract Config Silver Attributes
           if: matrix.function != 'Build'
           run: |
@@ -149,14 +143,25 @@ jobs:
             echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
             echo "tag=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .tag')" >> $GITHUB_ENV
             echo "buildsecrets=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .buildSettings.buildSecrets | select (.!=null)  | join(",")')" >> $GITHUB_ENV 
+            echo "buildenvs=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .buildSettings.buildEnvs | select (.!=null)  | join(",")')" >> $GITHUB_ENV 
+
         - name: Get containerSHA 
           if: matrix.function != 'Build'
           run: |
             echo "containerSHA=$(jq -R -c -n -r --argfile o1 ./output/containers.json '$o1 | .[] | select(.metadata.package_type == "container") | select(.metadata.container.tags[] | contains("${{ env.tag }}")) | .name')" >> $GITHUB_ENV
-        - name: Filter Secrets.json 
+        - name: Distill build secrets
+          id: create-json
+          uses: jsdaniell/create-json@v1.2.1
+          with:
+            name: "build_secrets.json"
+            json: ${{ toJson(secrets) }}
+            dir: './output/'
+        - name: Filter Build Secrets.json & Merge Build Envs
           if: matrix.function != 'Build'
           run: |
-            jq -R -c -n --arg v ${{env.buildsecrets}} --argfile o1 ./output/secrets.json '[$o1 | to_entries | .[] | select( .key  | IN($v|split(",")[])) | .]' > ./output/secrets.json
+            jq -R -c -n --arg v ${{env.buildsecrets}} --argfile o1 ./output/build_secrets.json '[$o1 | to_entries | .[] | select( .key  | IN($v|split(",")[])) | .]' > ./output/build_secrets.json
+            jq -R -c -n --arg v ${{env.buildenvs}} --argjson o1 ${{fromJson( steps.loadenv.outputs.envconfig }} '[$o1 | to_entries | .[] | select( .key  | IN($v|split(",")[])) | .]' > ./output/build_envs.json
+            jq -s -c '. | add' build_*.json >./output/build.json
         - name: npm add .npm to src
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
           run: echo -en "$npmrc" >| ./src/${{env.sourcepath}}/.npmrc \;
@@ -203,7 +208,7 @@ jobs:
             tags: ${{ steps.meta.outputs.tags }}
             labels: ${{ steps.meta.outputs.labels }}
             secret-files: |
-              "buildsecrets=./output/secrets.json"
+              "buildsecrets=./output/build.json"
         - name: Build and push Docker image
           uses: silver-labs/docker-building-action@main
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') && steps.check_common_docker.outputs.files_exists == 'true'}} 
@@ -219,8 +224,11 @@ jobs:
             tags: ${{ steps.meta.outputs.tags }}
             labels: ${{ steps.meta.outputs.labels }}
             secret-files: |
-              "buildsecrets=./output/secrets.json"
-
+              "buildsecrets=./output/build.json"
+        - name: Cleanup build secrets
+          if: matrix.function != 'Build'
+          run: |
+            rm -f ./output/*.json
   
 
 
@@ -268,13 +276,16 @@ jobs:
             echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
             echo "launcherimage=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | if .launcher then .launcher else empty end')" >> $GITHUB_ENV        
             echo "tag=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .tag')" >> $GITHUB_ENV
+            echo "runtimeenvs=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .gcpsettings.requiredEnv | select (.!=null)  | join(",")')" >> $GITHUB_ENV 
           env: 
             repo: ${{github.repository}}
 
         - name: Already Deployed
+          id: runtimeenv
           if: matrix.function != 'Build'
           run: |
             echo "alreadydeployed=$(cat ./output/images.json | jq --arg functionname ${{ matrix.function }} --arg tagmatch ${{ env.tag }} '. + [{"delete": false,"function": $functionname, "tag": "testtag" }] | .[] | select(.delete == false) | select(.function == $functionname) | if (.tag == $tagmatch) then true else empty end')"  >> $GITHUB_ENV
+            echo "::set-output name=runtimeenv::$(jq -R -c -n --arg v ${{env.buildenvs}} --argjson o1 ${{fromJson( steps.loadenv.outputs.envconfig }} '[$o1 | to_entries | .[] | select( .key  | IN("setting1,setting2"|split(",")[])) | .[.key] = .value | del(.key, .value)] | add')"
 
         - name: Log in to the Github Container registry
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' }} 
@@ -332,6 +343,7 @@ jobs:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             GCP_PROJECT_ID: ${{ fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}
             CONFIG_VARS: ${{ steps.loadenv.outputs.envconfig }}
+            RUNTIME_ENVS: ${{ steps.runtimeenv.outputs.runtimeenv }}
             crimage:        "us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:${{env.tag}}"
         - name: webfactory/ssh-agent
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha')  && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker')}} 
