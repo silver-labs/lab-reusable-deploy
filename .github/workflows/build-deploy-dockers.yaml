@@ -155,7 +155,7 @@ jobs:
           uses: jsdaniell/create-json@v1.2.1
           with:
             name: "build_secrets.json"
-            json: ${{ toJson(secrets) }}
+            json: ${{ toJson("{" + secrets + "}") }}
             dir: './output/'
         - name: Filter Build Secrets.json & Merge Build Envs
           if: matrix.function != 'Build'
