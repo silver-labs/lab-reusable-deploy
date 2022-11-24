@@ -162,7 +162,7 @@ jobs:
           run: |
             jq -R -c -n --argfile o1 ./output/build_secrets.json '[$o1 | to_entries | .[] | select( .key  | IN(env.buildsecrets|split(",")[])) | .]' > ./output/build_secrets.json
             jq -R -c -n --argjson o1 ${{toJson( steps.loadenv.outputs.envconfig) }} '[$o1 | to_entries | .[] | select( .key  | IN(env.buildenvs|split(",")[])) | .]' > ./output/build_envs.json
-            jq -s -c '. | add' build_*.json >./output/build.json
+            jq -s -c '. | add' ./output/build_*.json >./output/build.json
         - name: npm add .npm to src
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
           run: echo -en "$npmrc" >| ./src/${{env.sourcepath}}/.npmrc \;
