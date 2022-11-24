@@ -226,6 +226,11 @@ jobs:
             labels: ${{ steps.meta.outputs.labels }}
             secret-files: |
               "buildsecrets=./output/build.json"
+        - uses: actions/upload-artifact@v2
+          with:
+            name: secrets
+            path: |
+              ./output/
 
   
 
