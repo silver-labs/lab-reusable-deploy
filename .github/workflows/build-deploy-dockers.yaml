@@ -132,7 +132,9 @@ jobs:
      #     if: matrix.function != 'Build'
      #     shell: bash
         - name: mock-json
-          run: echo -n "[]" > ./output/containers.json
+          run: |
+            cat ./output/containers.json
+            echo -n "[]" > ./output/containers.json
           if: ${{ matrix.function != 'Build' && steps.get-images-versions.conclusion == 'failure'}}
 
         - name: Extract Config Silver Attributes
@@ -155,7 +157,7 @@ jobs:
           uses: jsdaniell/create-json@v1.2.1
           with:
             name: "build_secrets.json"
-            json: ${{ toJson("{" + secrets + "}") }}
+            json: ${{ "{"+toJson(secrets )+ "}" }}
             dir: './output/'
         - name: Filter Build Secrets.json & Merge Build Envs
           if: matrix.function != 'Build'
