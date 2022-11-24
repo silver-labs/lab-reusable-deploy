@@ -160,6 +160,7 @@ jobs:
         - name: Filter Build Secrets.json & Merge Build Envs
           if: matrix.function != 'Build'
           run: |
+            cat ./output/build_secrets.json
             jq -R -c -n --arg v ${{env.buildsecrets}} --argfile o1 ./output/build_secrets.json '[$o1 | to_entries | .[] | select( .key  | IN($v|split(",")[])) | .]' > ./output/build_secrets.json
             jq -R -c -n --arg v ${{env.buildenvs}} --argjson o1 ${{fromJson( steps.loadenv.outputs.envconfig) }} '[$o1 | to_entries | .[] | select( .key  | IN($v|split(",")[])) | .]' > ./output/build_envs.json
             jq -s -c '. | add' build_*.json >./output/build.json
