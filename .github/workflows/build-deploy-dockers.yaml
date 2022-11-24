@@ -154,13 +154,13 @@ jobs:
           id: create-json-secrets
           uses: jsdaniell/create-json@v1.2.1
           with:
-            name: "build_secrets.json"
+            name: "working_secrets.json"
             json: ${{ toJson(secrets ) }}
             dir: './output/'
         - name: Filter Build Secrets.json & Merge Build Envs
           if: matrix.function != 'Build'
           run: |
-            jq -R -c -n --argfile o1 ./output/build_secrets.json '[$o1 | to_entries | .[] | select( .key  | IN(env.buildsecrets|split(",")[])) | .]' > ./output/build_secrets.json
+            jq -R -c -n --argfile o1 ./output/working_secrets.json '[$o1 | to_entries | .[] | select( .key  | IN(env.buildsecrets|split(",")[])) | .]' > ./output/build_secrets.json
             jq -R -c -n --argjson o1 ${{toJson( steps.loadenv.outputs.envconfig) }} '[$o1 | to_entries | .[] | select( .key  | IN(env.buildenvs|split(",")[])) | .]' > ./output/build_envs.json
             jq -s -c '. | add' ./output/build_*.json >./output/build.json
         - name: npm add .npm to src
