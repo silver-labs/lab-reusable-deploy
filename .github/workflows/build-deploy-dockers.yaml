@@ -279,7 +279,7 @@ jobs:
             echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
             echo "launcherimage=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | if .launcher then .launcher else empty end')" >> $GITHUB_ENV        
             echo "tag=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .tag')" >> $GITHUB_ENV
-            echo "runtimeenvs=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .gcpsettings.requiredEnv | select (.!=null)  | join(",")')" >> $GITHUB_ENV 
+            echo "runtimeenvs=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .gcpsettings.cloudrun.requiredEnv | select (.!=null)  | join(",")')" >> $GITHUB_ENV 
           env: 
             repo: ${{github.repository}}
 
