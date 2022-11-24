@@ -157,17 +157,11 @@ jobs:
             name: "build_secrets.json"
             json: ${{ toJson(secrets ) }}
             dir: './output/'
-        - uses: actions/upload-artifact@v2
-          with:
-            name: jsonoutputs
-            path: |
-              ./output/
         - name: Filter Build Secrets.json & Merge Build Envs
           if: matrix.function != 'Build'
           run: |
-            cat ./output/build_secrets.json
-            jq -R -c -n --arg v ${{env.buildsecrets}} --argfile o1 ./output/build_secrets.json '[$o1 | to_entries | .[] | select( .key  | IN($v|split(",")[])) | .]' > ./output/build_secrets.json
-            jq -R -c -n --arg v ${{env.buildenvs}} --argjson o1 ${{fromJson( steps.loadenv.outputs.envconfig) }} '[$o1 | to_entries | .[] | select( .key  | IN($v|split(",")[])) | .]' > ./output/build_envs.json
+            jq -R -c -n --argfile o1 ./output/build_secrets.json '[$o1 | to_entries | .[] | select( .key  | IN(env.buildsecrets|split(",")[])) | .]' > ./output/build_secrets.json
+            jq -R -c -n --argjson o1 "${{fromJson( steps.loadenv.outputs.envconfig) }}" '[$o1 | to_entries | .[] | select( .key  | IN(env.buildenvs|split(",")[])) | .]' > ./output/build_envs.json
             jq -s -c '. | add' build_*.json >./output/build.json
         - name: npm add .npm to src
           if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
