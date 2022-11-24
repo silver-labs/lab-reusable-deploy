@@ -150,7 +150,7 @@ jobs:
           run: |
             echo "containerSHA=$(jq -R -c -n -r --argfile o1 ./output/containers.json '$o1 | .[] | select(.metadata.package_type == "container") | select(.metadata.container.tags[] | contains("${{ env.tag }}")) | .name')" >> $GITHUB_ENV
         - name: Distill build secrets
-          id: create-json
+          id: create-json-secrets
           uses: jsdaniell/create-json@v1.2.1
           with:
             name: "build_secrets.json"
