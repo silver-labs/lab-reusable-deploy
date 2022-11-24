@@ -133,13 +133,13 @@ jobs:
      #     shell: bash
         - name: mock-json
           run: |
-            cat ./output/containers.json
             echo -n "[]" > ./output/containers.json
           if: ${{ matrix.function != 'Build' && steps.get-images-versions.conclusion == 'failure'}}
 
         - name: Extract Config Silver Attributes
           if: matrix.function != 'Build'
           run: |
+            cat ./output/containers.json
             echo "sourcepath=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .path')" >> $GITHUB_ENV
             echo "imagetype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .type')" >> $GITHUB_ENV
             echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
