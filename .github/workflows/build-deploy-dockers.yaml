@@ -142,8 +142,8 @@ jobs:
             echo "imagetype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .type')" >> $GITHUB_ENV
             echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
             echo "tag=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .tag')" >> $GITHUB_ENV
-            echo "buildsecrets=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .buildSettings.buildSecrets | select (.!=null)  | (join(",")+"null")')" >> $GITHUB_ENV 
-            echo "buildenvs=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .buildSettings.buildEnvs | select (.!=null)  | (join(",")+"null")')" >> $GITHUB_ENV 
+            echo "buildsecrets=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .buildsettings.buildSecrets | select (.!=null)  | (join(",")+"null")')" >> $GITHUB_ENV 
+            echo "buildenvs=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .buildsettings.buildEnvs | select (.!=null)  | (join(",")+"null")')" >> $GITHUB_ENV 
 
         - name: Get containerSHA 
           if: matrix.function != 'Build'
