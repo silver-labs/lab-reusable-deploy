@@ -60,7 +60,7 @@ jobs:
             state_encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY}}
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             GCP_PROJECT_ID: ${{ fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id }}
-            CONFIG_VARS: ${{ steps.loadenv.outputs.envconfig }}
+            CONFIG_VARS: ${{ toJson(steps.loadenv.outputs.envconfig) }}
             secrets:        ${{ toJson(secrets) }}
         - name: Set Environment URL
           id: urlset
