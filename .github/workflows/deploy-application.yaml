@@ -40,14 +40,12 @@ jobs:
           run: |
             echo "${{fromJson( steps.loadenv.outputs.envconfig )}}"
         - name: Get Runtime ENV Requirements
-          if: matrix.function != 'Build'
           run: |
             echo "runtimeenvs=$(cat ./src/${{inputs.application_name}}/config.silver | jq -c -r ' .gcpsettings.cloudrun.requiredEnv | select (.!=null)  | join(",")')" >> $GITHUB_ENV 
           env: 
             repo: ${{github.repository}}
         - name: Construct Runtime Env Payload
           id: runtimeenv
-          if: matrix.function != 'Build'
           run: |
             echo "::set-output name=runtimeenv::$(jq -R -c -n  --argjson o1 ${{toJson( steps.loadenv.outputs.envconfig) }} '[$o1 | to_entries | .[] | select( .key  | IN(env.runtimeenvs | split(",")[])) | .[.key] = .value | del(.key, .value)] | add')"
         - name: Deploy
