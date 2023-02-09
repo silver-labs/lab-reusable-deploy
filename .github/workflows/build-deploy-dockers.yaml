@@ -61,7 +61,7 @@ jobs:
             gcloud auth configure-docker --quiet
             gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
             gcloud artifacts docker tags list us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp  --format=json | jq 'group_by(.version) | map( {function: (.[0].image | split("/")[-1]),  version: ("sha256:" + (.[0].version | split("sha256:")[1])), tags: [.[] | .tag | split("tags/")[1]]} ) |  map( {function, version, latest: .tags | contains(["latest"]), tags: .tags}) |  map( select(.latest) |  {function, version, tag: (.tags | map(select(. | contains("latest")|not)))[0], delete: false} ) +  map( select(.latest | not) | {function, version, tag: (.tags | map(select(. | contains("latest")|not)))[0],  delete: true} )' > ./output/images.json
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: functionsconfig
           path: |
@@ -96,7 +96,7 @@ jobs:
           run: |
             echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)"
 
-        - uses: actions/download-artifact@v2
+        - uses: actions/download-artifact@v3
           if: matrix.function != 'Build'
           with:
             name: functionsconfig
@@ -226,7 +226,7 @@ jobs:
             labels: ${{ steps.meta.outputs.labels }}
             secret-files: |
               "buildsecrets=./output/build.json"
-        - uses: actions/upload-artifact@v2
+        - uses: actions/upload-artifact@v3
           with:
             name: secrets
             path: |
