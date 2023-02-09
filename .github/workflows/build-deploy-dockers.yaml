@@ -265,7 +265,7 @@ jobs:
           run: |
             echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)"
 
-        - uses: actions/download-artifact@v2
+        - uses: actions/download-artifact@v3
           with:
             name: functionsconfig
             path: output
