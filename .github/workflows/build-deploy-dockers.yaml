@@ -318,7 +318,7 @@ jobs:
 
         - name: Push Image to multiple registries
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' }} 
-          uses: akhilerm/tag-push-action@v2.0.0
+          uses: akhilerm/tag-push-action@v2.1.0
           with:
             src: ${{ env.REGISTRY }}/silver-labs/${{env.repowithoutorg}}/${{matrix.function}}:${{env.tag}}
             dst: |
