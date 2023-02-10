@@ -35,7 +35,8 @@ jobs:
       - name: Load Environments
         id: loadenv
         run: |
-            echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)"
+            echo "envconfig=$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)" >> $GITHUB_OUTPUT
+# echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)"
 
       - name: AGLABS Builder
         id: identify-functions
