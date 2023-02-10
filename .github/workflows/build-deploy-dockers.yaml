@@ -96,7 +96,8 @@ jobs:
         - name: Load Environments
           id: loadenv
           run: |
-            echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)"
+            echo "envconfig=$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)" >> $GITHUB_OUTPUT
+          #  echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)"
 
         - uses: actions/download-artifact@v3
           if: matrix.function != 'Build'
@@ -265,7 +266,8 @@ jobs:
         - name: Load Environments
           id: loadenv
           run: |
-            echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)"
+            echo "envconfig=$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)" >> $GITHUB_OUTPUT
+# echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)"
 
         - uses: actions/download-artifact@v3
           with:
@@ -290,7 +292,8 @@ jobs:
           if: matrix.function != 'Build'
           run: |
             echo "alreadydeployed=$(cat ./output/images.json | jq --arg functionname ${{ matrix.function }} --arg tagmatch ${{ env.tag }} '. + [{"delete": false,"function": $functionname, "tag": "testtag" }] | .[] | select(.delete == false) | select(.function == $functionname) | if (.tag == $tagmatch) then true else empty end')"  >> $GITHUB_ENV
-            echo "::set-output name=runtimeenv::$(jq -R -c -n  --argjson o1 ${{toJson( steps.loadenv.outputs.envconfig) }} '[$o1 | to_entries | .[] | select( .key  | IN(env.runtimeenvs | split(",")[])) | .[.key] = .value | del(.key, .value)] | add')"
+            echo "runtimeenv=$(jq -R -c -n  --argjson o1 ${{toJson( steps.loadenv.outputs.envconfig) }} '[$o1 | to_entries | .[] | select( .key  | IN(env.runtimeenvs | split(",")[])) | .[.key] = .value | del(.key, .value)] | add')" >> $GITHUB_OUTPUT
+  # echo "::set-output name=runtimeenv::$(jq -R -c -n  --argjson o1 ${{toJson( steps.loadenv.outputs.envconfig) }} '[$o1 | to_entries | .[] | select( .key  | IN(env.runtimeenvs | split(",")[])) | .[.key] = .value | del(.key, .value)] | add')"
 
         - name: Log in to the Github Container registry
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' }} 
