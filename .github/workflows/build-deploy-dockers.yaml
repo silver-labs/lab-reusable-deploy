@@ -45,7 +45,7 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
           docker pull ghcr.io/silver-labs/lab-builder:v1.1.7
           docker run -v $(pwd)/output:/output -v $(pwd)/src:/src -v $(pwd):/tf ghcr.io/silver-labs/lab-builder:v1.1.7
-          echo "functions=$(jq -R -c -n --argfile o1 ./output/aggregate.config.silver '$o1 | map(.name)' | jq -c '. + ["build"]')"
+          echo "functions=$(jq -R -c -n --argfile o1 ./output/aggregate.config.silver '$o1 | map(.name)' | jq -c '. + ["build"]')" >> $GITHUB_OUTPUT
         #echo ""::set-output name=functions::$(jq -R -c -n --argfile o1 ./output/aggregate.config.silver '$o1 | map(.name)' | jq -c '. + ["build"]')""
 
       # Gain oauthtoken for GCP SA user
