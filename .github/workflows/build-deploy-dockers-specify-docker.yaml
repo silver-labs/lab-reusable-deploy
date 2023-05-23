@@ -198,8 +198,8 @@ jobs:
               ${{ secrets.LLM_NER_DEPLOY_PRIVATE_KEY }}
         - name: Collect Git and SSH config files in a directory that is part of the Docker build context
           run: |
-            mkdir root-config
-            cp -r ~/.gitconfig  ~/.ssh root-config/
+            mkdir ./src/${{env.sourcepath}}/root-config
+            cp -r ~/.gitconfig  ~/.ssh ./src/${{env.sourcepath}}/root-config/
         - name: Check file existence
           id: check_common_docker
           uses: andstor/file-existence-action@v1
@@ -368,8 +368,8 @@ jobs:
               ${{ secrets.LLM_NER_DEPLOY_PRIVATE_KEY }}
         - name: Collect Git and SSH config files in a directory that is part of the Docker build context
           run: |
-            mkdir root-config
-            cp -r ~/.gitconfig  ~/.ssh root-config/
+            mkdir ./src/${{env.sourcepath}}/root-config
+            cp -r ~/.gitconfig  ~/.ssh ./src/${{env.sourcepath}}/root-config/
         - id: push-dataflow-launcher
           name: Tag Docker image and push to Google Artifact Registry
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker') }}
