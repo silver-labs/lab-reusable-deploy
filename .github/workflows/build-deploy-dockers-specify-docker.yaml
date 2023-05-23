@@ -195,6 +195,7 @@ jobs:
           with:
             ssh-private-key: |
               ${{ secrets.DEPLOY_G2NOTESEXTRACTOR }}
+              ${{ secrets.LLM_NER_DEPLOY_PRIVATE_KEY }}
         - name: Check file existence
           id: check_common_docker
           uses: andstor/file-existence-action@v1
@@ -360,6 +361,7 @@ jobs:
           with:
             ssh-private-key: |
               ${{ secrets.DEPLOY_G2NOTESEXTRACTOR }}
+              ${{ secrets.LLM_NER_DEPLOY_PRIVATE_KEY }}
         - id: push-dataflow-launcher
           name: Tag Docker image and push to Google Artifact Registry
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker') }}
