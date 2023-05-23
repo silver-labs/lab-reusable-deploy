@@ -195,12 +195,10 @@ jobs:
             ssh-private-key: |
               ${{ secrets.DEPLOY_G2NOTESEXTRACTOR }}
               ${{ secrets.LLM_NER_DEPLOY_PRIVATE_KEY }}
-        - name: Debug ssh config files
-          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }}
+        - name: Collect Git and SSH config files in a directory that is part of the Docker build context
           run: |
-            ls -l ~/.ssh
-            cat ~/.ssh/config
-            cat ~/.gitconfig
+            mkdir root-config
+            cp -r ~/.gitconfig  ~/.ssh root-config/
         - name: Check file existence
           id: check_common_docker
           uses: andstor/file-existence-action@v1
@@ -367,6 +365,10 @@ jobs:
             ssh-private-key: |
               ${{ secrets.DEPLOY_G2NOTESEXTRACTOR }}
               ${{ secrets.LLM_NER_DEPLOY_PRIVATE_KEY }}
+        - name: Collect Git and SSH config files in a directory that is part of the Docker build context
+          run: |
+            mkdir root-config
+            cp -r ~/.gitconfig  ~/.ssh root-config/
         - id: push-dataflow-launcher
           name: Tag Docker image and push to Google Artifact Registry
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker') }}
