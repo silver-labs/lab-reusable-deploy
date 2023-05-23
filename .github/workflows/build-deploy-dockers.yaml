@@ -195,6 +195,12 @@ jobs:
             ssh-private-key: |
               ${{ secrets.DEPLOY_G2NOTESEXTRACTOR }}
               ${{ secrets.LLM_NER_DEPLOY_PRIVATE_KEY }}
+        - name: Debug ssh config files
+          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }}
+          run: |
+            ls -l ~/.ssh
+            cat ~/.ssh/config
+            cat ~/.gitconfig
         - name: Check file existence
           id: check_common_docker
           uses: andstor/file-existence-action@v1
