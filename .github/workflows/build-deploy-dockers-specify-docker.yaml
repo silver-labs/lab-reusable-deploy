@@ -25,7 +25,7 @@ jobs:
       contents: read
       packages: read
       id-token: 'write'
-    environment: 
+    environment:
       name: ${{inputs.environment}}
 
     steps:
@@ -35,8 +35,8 @@ jobs:
       - name: Load Environments
         id: loadenv
         run: |
-            echo "envconfig=$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)" >> $GITHUB_OUTPUT
-# echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)"
+          echo "envconfig=$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)" >> $GITHUB_OUTPUT
+        # echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)"
 
       - name: AGLABS Builder
         id: identify-functions
@@ -46,7 +46,7 @@ jobs:
           docker pull ghcr.io/silver-labs/lab-builder:v1.1.7
           docker run -v $(pwd)/output:/output -v $(pwd)/src:/src -v $(pwd):/tf ghcr.io/silver-labs/lab-builder:v1.1.7
           echo "functions=$(jq -R -c -n --argfile o1 ./output/aggregate.config.silver '$o1 | map(.name)' | jq -c '. + ["build"]')" >> $GITHUB_OUTPUT
-        #echo ""::set-output name=functions::$(jq -R -c -n --argfile o1 ./output/aggregate.config.silver '$o1 | map(.name)' | jq -c '. + ["build"]')""
+        # echo ""::set-output name=functions::$(jq -R -c -n --argfile o1 ./output/aggregate.config.silver '$o1 | map(.name)' | jq -c '. + ["build"]')""
 
       # Gain oauthtoken for GCP SA user
       - name: Authorize to GCP
@@ -62,7 +62,9 @@ jobs:
         run: |-
             gcloud auth configure-docker --quiet
             gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
-            gcloud artifacts docker tags list us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp  --format=json | jq 'group_by(.version) | map( {function: (.[0].image | split("/")[-1]),  version: ("sha256:" + (.[0].version | split("sha256:")[1])), tags: [.[] | .tag | split("tags/")[1]]} ) |  map( {function, version, latest: .tags | contains(["latest"]), tags: .tags}) |  map( select(.latest) |  {function, version, tag: (.tags | map(select(. | contains("latest")|not)))[0], delete: false} ) +  map( select(.latest | not) | {function, version, tag: (.tags | map(select(. | contains("latest")|not)))[0],  delete: true} )' > ./output/images.json
+            gcloud artifacts docker tags list us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp  --format=json \
+              | jq 'group_by(.version) | map( {function: (.[0].image | split("/")[-1]),  version: ("sha256:" + (.[0].version | split("sha256:")[1])), tags: [.[] | .tag | split("tags/")[1]]} ) |  map( {function, version, latest: .tags | contains(["latest"]), tags: .tags}) |  map( select(.latest) |  {function, version, tag: (.tags | map(select(. | contains("latest")|not)))[0], delete: false} ) +  map( select(.latest | not) | {function, version, tag: (.tags | map(select(. | contains("latest")|not)))[0],  delete: true} )' \
+              > ./output/images.json
       - uses: actions/upload-artifact@v3
         with:
           name: functionsconfig
@@ -78,7 +80,7 @@ jobs:
         function: ${{ fromJSON(needs.setup.outputs.functions) }}
     name: ${{ matrix.function }} => Build
     runs-on: ubuntu-latest
-    environment: 
+    environment:
       name: ${{inputs.environment}}
 
 
@@ -90,7 +92,7 @@ jobs:
 
     steps:
         - name: Checkout
-          if: matrix.function != 'Build'
+          if: matrix.function != 'build'
           uses: actions/checkout@v3
 
         - name: Load Environments
@@ -100,7 +102,7 @@ jobs:
           #  echo "::set-output name=envconfig::$(cd ./envs/${{inputs.environment}}; jq -s -c '. | add' *.json)"
 
         - uses: actions/download-artifact@v3
-          if: matrix.function != 'Build'
+          if: matrix.function != 'build'
           with:
             name: functionsconfig
             path: output
@@ -113,7 +115,7 @@ jobs:
         - name: get-images-versions
           uses: octokit/request-action@v2.x
           continue-on-error: true
-          if: matrix.function != 'Build'
+          if: matrix.function != 'build'
           id: get_image_versions
           with:
             route: GET /orgs/{owner}/packages/container/{repo}%2F{function}/versions
@@ -126,35 +128,35 @@ jobs:
         - name: create-json
           id: create-json
           uses: jsdaniell/create-json@v1.2.1
-          if: ${{ matrix.function != 'Build' && steps.get-images-versions.conclusion == 'success'}}
+          if: ${{ matrix.function != 'build' && steps.get-images-versions.conclusion == 'success'}}
           with:
             name: "containers.json"
             json: ${{steps.get_image_versions.outputs.data}}
             dir: './output/'
-     #   - run: echo -e "${{ toJson(steps.get_image_versions.outputs.data) }}" > ./output/containers.json 
-     #     if: matrix.function != 'Build'
+     #   - run: echo -e "${{ toJson(steps.get_image_versions.outputs.data) }}" > ./output/containers.json
+     #     if: matrix.function != 'build'
      #     shell: bash
         - name: mock-json
           run: |
             echo -n "[]" > ./output/containers.json
-          if: ${{ matrix.function != 'Build' && steps.get-images-versions.conclusion == 'failure'}}
+          if: ${{ matrix.function != 'build' && steps.get-images-versions.conclusion == 'failure'}}
         - name: Extract Config Silver Attributes
-          if: matrix.function != 'Build'
+          if: matrix.function != 'build'
           run: |
             echo "sourcepath=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .path')" >> $GITHUB_ENV
             echo "imagetype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .type')" >> $GITHUB_ENV
             echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
             echo "tag=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .tag')" >> $GITHUB_ENV
-            echo "buildsecrets=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .buildsettings.buildSecrets | select (.!=null)  | (join(","))')" >> $GITHUB_ENV 
-            echo "buildenvs=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .buildsettings.buildEnvs | select (.!=null)  | (join(","))')" >> $GITHUB_ENV 
+            echo "buildsecrets=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .buildsettings.buildSecrets | select (.!=null)  | (join(","))')" >> $GITHUB_ENV
+            echo "buildenvs=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .buildsettings.buildEnvs | select (.!=null)  | (join(","))')" >> $GITHUB_ENV
             echo "dockercontext=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .docker.context')" >> $GITHUB_ENV
             echo "dockerfile=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .docker.file')" >> $GITHUB_ENV
-        - name: Get containerSHA 
-          if: matrix.function != 'Build'
+        - name: Get containerSHA
+          if: matrix.function != 'build'
           run: |
             echo "containerSHA=$(jq -R -c -n -r --argfile o1 ./output/containers.json '$o1 | .[] | select(.metadata.package_type == "container") | select(.metadata.container.tags[] | contains("${{ env.tag }}")) | .name')" >> $GITHUB_ENV
         - name: Distill build secrets
-          if: matrix.function != 'Build'
+          if: matrix.function != 'build'
           id: create-json-secrets
           uses: jsdaniell/create-json@v1.2.1
           with:
@@ -162,20 +164,20 @@ jobs:
             json: ${{ toJson(secrets ) }}
             dir: './output/'
         - name: Filter Build Secrets.json & Merge Build Envs
-          if: matrix.function != 'Build'
+          if: matrix.function != 'build'
           run: |
             jq -R -c -n --argfile o1 ./output/working_secrets.json '[$o1 | to_entries | .[] | select( .key  | IN(env.buildsecrets|split(",")[])) | .]' > ./output/build_secrets.json
             jq -R -c -n --argjson o1 ${{toJson( steps.loadenv.outputs.envconfig) }} '[$o1 | to_entries | .[] | select( .key  | IN(env.buildenvs|split(",")[])) | .]' > ./output/build_envs.json
             jq -s -c '. | add' ./output/build_*.json >./output/build.json
         - name: npm add .npm to src
-          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
+          if: ${{ matrix.function != 'build' && !startsWith(env.containerSHA,'sha') }}
           run: echo -en "$npmrc" >| ./src/${{env.dockercontext}}/.npmrc \;
           shell: bash
           env:
             npmrc : ${{secrets.NPMRC_PACKAGE_DEPLOY_CONFIG}}
 
         - name: Log in to the Container registry
-          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
+          if: ${{ matrix.function != 'build' && !startsWith(env.containerSHA,'sha') }}
           uses: docker/login-action@v2.0.0
           with:
             registry: ${{ env.REGISTRY }}
@@ -183,20 +185,21 @@ jobs:
             password: ${{ secrets.GITHUB_TOKEN }}
         - name: Extract metadata (tags, labels) for Docker
           id: meta
-          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
+          if: ${{ matrix.function != 'build' && !startsWith(env.containerSHA,'sha') }}
           uses: docker/metadata-action@v4.0.1
           with:
             images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.function }}
             tags: |
               type=raw,${{env.tag}}
         - name: webfactory/ssh-agent
-          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') }} 
+          if: ${{ matrix.function != 'build' && !startsWith(env.containerSHA,'sha') }}
           uses: webfactory/ssh-agent@v0.5.4
           with:
             ssh-private-key: |
               ${{ secrets.DEPLOY_G2NOTESEXTRACTOR }}
               ${{ secrets.LLM_NER_DEPLOY_PRIVATE_KEY }}
         - name: Collect Git and SSH config files in a directory that is part of the Docker build context
+          if: ${{ matrix.function != 'build' && !startsWith(env.containerSHA,'sha') }}
           run: |
             mkdir ./src/${{env.sourcepath}}/root-config
             cp -r ~/.gitconfig  ~/.ssh ./src/${{env.sourcepath}}/root-config/
@@ -207,7 +210,7 @@ jobs:
             files: "src/common/Dockerfile"
         - name: Build and push Docker image
           uses: silver-labs/docker-building-action@main
-          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') && steps.check_common_docker.outputs.files_exists == 'false'}} 
+          if: ${{ matrix.function != 'build' && !startsWith(env.containerSHA,'sha') && steps.check_common_docker.outputs.files_exists == 'false'}}
           with:
             buildName: ${{matrix.function}}
             ssh: |
@@ -221,7 +224,7 @@ jobs:
               "buildsecrets=./output/build.json"
         - name: Build and push Docker image
           uses: silver-labs/docker-building-action@main
-          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha') && steps.check_common_docker.outputs.files_exists == 'true'}} 
+          if: ${{ matrix.function != 'build' && !startsWith(env.containerSHA,'sha') && steps.check_common_docker.outputs.files_exists == 'true'}}
           with:
             buildName: ${{matrix.function}}
             ssh: |
@@ -241,7 +244,7 @@ jobs:
             path: |
               ./output/
 
-  
+
 
 
   deploy:
@@ -252,7 +255,7 @@ jobs:
         function: ${{ fromJSON(needs.setup.outputs.functions) }}
     name: ${{ matrix.function }} => Deploy
     runs-on: ubuntu-latest
-    environment: 
+    environment:
       name: ${{inputs.environment}}
     env:
       tf_version: '1.2.8'
@@ -266,7 +269,7 @@ jobs:
 
     steps:
         - name: Checkout
-          if: matrix.function != 'Build'
+          if: matrix.function != 'build'
           uses: actions/checkout@v3
 
         - name: Load Environments
@@ -281,28 +284,28 @@ jobs:
             path: output
 
         - name: Create get image details
-          if: matrix.function != 'Build'
+          if: matrix.function != 'build'
           run: |
             echo "repowithoutorg="${repo/silver-labs\//}"" >> $GITHUB_ENV
             echo "sourcepath=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .path')" >> $GITHUB_ENV
             echo "imagetype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .type')" >> $GITHUB_ENV
             echo "imagesubtype=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | .subtype' | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
-            echo "launcherimage=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | if .launcher then .launcher else empty end')" >> $GITHUB_ENV        
+            echo "launcherimage=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}") | if .launcher then .launcher else empty end')" >> $GITHUB_ENV
             echo "tag=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .tag')" >> $GITHUB_ENV
-            echo "runtimeenvs=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .gcpsettings.cloudrun.requiredEnv | select (.!=null)  | join(",")')" >> $GITHUB_ENV 
-          env: 
+            echo "runtimeenvs=$(cat ./output/aggregate.config.silver | jq -c -r '.[] | select( .name == "${{ matrix.function }}" ) | .gcpsettings.cloudrun.requiredEnv | select (.!=null)  | join(",")')" >> $GITHUB_ENV
+          env:
             repo: ${{github.repository}}
 
         - name: Already Deployed
           id: runtimeenv
-          if: matrix.function != 'Build'
+          if: matrix.function != 'build'
           run: |
             echo "alreadydeployed=$(cat ./output/images.json | jq --arg functionname ${{ matrix.function }} --arg tagmatch ${{ env.tag }} '. + [{"delete": false,"function": $functionname, "tag": "testtag" }] | .[] | select(.delete == false) | select(.function == $functionname) | if (.tag == $tagmatch) then true else empty end')"  >> $GITHUB_ENV
             echo "runtimeenv=$(jq -R -c -n  --argjson o1 ${{toJson( steps.loadenv.outputs.envconfig) }} '[$o1 | to_entries | .[] | select( .key  | IN(env.runtimeenvs | split(",")[])) | .[.key] = .value | del(.key, .value)] | add')" >> $GITHUB_OUTPUT
   # echo "::set-output name=runtimeenv::$(jq -R -c -n  --argjson o1 ${{toJson( steps.loadenv.outputs.envconfig) }} '[$o1 | to_entries | .[] | select( .key  | IN(env.runtimeenvs | split(",")[])) | .[.key] = .value | del(.key, .value)] | add')"
 
         - name: Log in to the Github Container registry
-          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' }} 
+          if: ${{ matrix.function != 'build' && env.alreadydeployed != 'true' }}
           uses: docker/login-action@v2.0.0
           with:
             registry: ${{ env.REGISTRY }}
@@ -311,7 +314,7 @@ jobs:
 
       # Gain oauthtoken for GCP SA user
         - name: Authorize to GCP
-          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' }} 
+          if: ${{ matrix.function != 'build' && env.alreadydeployed != 'true' }}
           id: auth
           uses: 'google-github-actions/auth@v0'
           with:
@@ -320,7 +323,7 @@ jobs:
             token_format: access_token
 
         - name: Log in to the GCP Container registry
-          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' }} 
+          if: ${{ matrix.function != 'build' && env.alreadydeployed != 'true' }}
           uses: docker/login-action@v2.0.0
           with:
             registry: us-central1-docker.pkg.dev
@@ -328,7 +331,7 @@ jobs:
             password: ${{steps.auth.outputs.access_token}}
 
         - name: Push Image to multiple registries
-          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' }} 
+          if: ${{ matrix.function != 'build' && env.alreadydeployed != 'true' }}
           uses: akhilerm/tag-push-action@v2.1.0
           with:
             src: ${{ env.REGISTRY }}/silver-labs/${{env.repowithoutorg}}/${{matrix.function}}:${{env.tag}}
@@ -336,7 +339,7 @@ jobs:
                us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:${{env.tag}}
                us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:latest
         - name: Deploy Terragrunt
-          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true'}} 
+          if: ${{ matrix.function != 'build' && env.alreadydeployed != 'true'}}
           uses: datadrivers/terragrunt-action@v0
           with:
             aws-role-to-assume: "idunno"
@@ -351,7 +354,7 @@ jobs:
             use-ssh-agent: "true"
             ssh-private-key: ${{ secrets.TG_GH_AGLABS_TF_MODULES_SSH_DEPLOY_KEY }}
             terragrunt-command: |
-              terragrunt run-all apply --terragrunt-non-interactive 
+              terragrunt run-all apply --terragrunt-non-interactive
           env:
             state_encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY}}
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -360,19 +363,20 @@ jobs:
             RUNTIME_ENVS: ${{ steps.runtimeenv.outputs.runtimeenv }}
             crimage:        "us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:${{env.tag}}"
         - name: webfactory/ssh-agent
-          if: ${{ matrix.function != 'Build' && !startsWith(env.containerSHA,'sha')  && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker')}} 
+          if: ${{ matrix.function != 'build' && !startsWith(env.containerSHA,'sha')  && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker')}}
           uses: webfactory/ssh-agent@v0.5.4
           with:
             ssh-private-key: |
               ${{ secrets.DEPLOY_G2NOTESEXTRACTOR }}
               ${{ secrets.LLM_NER_DEPLOY_PRIVATE_KEY }}
         - name: Collect Git and SSH config files in a directory that is part of the Docker build context
+          if: ${{ matrix.function != 'build' && !startsWith(env.containerSHA,'sha') }}
           run: |
             mkdir ./src/${{env.sourcepath}}/root-config
             cp -r ~/.gitconfig  ~/.ssh ./src/${{env.sourcepath}}/root-config/
         - id: push-dataflow-launcher
           name: Tag Docker image and push to Google Artifact Registry
-          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker') }}
+          if: ${{ matrix.function != 'build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && startsWith(env.launcherimage,'Docker') }}
           uses: silver-labs/docker-building-action@main
           with:
             buildName: ${{matrix.function}}-launcher
@@ -384,12 +388,10 @@ jobs:
             tags: |
                 us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}-launcher:latest
         - name: Create Dataflow Template Config - no launcher
-          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && !startsWith(env.launcherimage,'Docker') }}
+          if: ${{ matrix.function != 'build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && !startsWith(env.launcherimage,'Docker') }}
           run: |
             (cd src; cd ${{env.sourcepath}}; gcloud dataflow flex-template build gs://${{ fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id }}-dataflow-templates/${{matrix.function}}.json --image "us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:${{env.tag}}" --sdk-language "${{env.imagesubtype}}" --metadata-file "metadata.json")
-        - name: Create Dataflow Template Config - launcher 
-          if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow')  && startsWith(env.launcherimage,'Docker')}}
+        - name: Create Dataflow Template Config - launcher
+          if: ${{ matrix.function != 'build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow')  && startsWith(env.launcherimage,'Docker')}}
           run: |
             (cd src; cd ${{env.sourcepath}}; gcloud dataflow flex-template build gs://${{ fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id }}-dataflow-templates/${{matrix.function}}.json --image "us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}-launcher:latest" --sdk-language "${{env.imagesubtype}}" --metadata-file "metadata.json")
-
-
