@@ -122,7 +122,7 @@ jobs:
             repo: ${{env.repowithoutorg}}
             function: ${{ matrix.function }}
           env:
-            GITHUB_TOKEN: ${{ secrets.GHA_ORG_PACKAGE_ACCESS_TOKEN }}
+            GITHUB_TOKEN: ${{ secrets.REUSABLE_BUILD_DEPLOY_TOKEN }} #GHA_ORG_PACKAGE_ACCESS_TOKEN
         - name: create-json
           id: create-json
           uses: jsdaniell/create-json@v1.2.1

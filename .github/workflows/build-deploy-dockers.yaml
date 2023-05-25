@@ -122,7 +122,7 @@ jobs:
             repo: ${{env.repowithoutorg}}
             function: ${{ matrix.function }}
           env:
-            GITHUB_TOKEN: ${{ secrets.GHA_ORG_PACKAGE_ACCESS_TOKEN }}
+            GITHUB_TOKEN: ${{ secrets.REUSABLE_BUILD_DEPLOY_TOKEN }} #GHA_ORG_PACKAGE_ACCESS_TOKEN
         - name: create-json
           id: create-json
           uses: jsdaniell/create-json@v1.2.1
@@ -384,7 +384,7 @@ jobs:
             push: true
             tags: |
                 us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}-launcher:latest
-        - name: Create Dataflow Template Config - no launcher
+        - name: Create Dataflow Template Config - no launcher 
           if: ${{ matrix.function != 'Build' && env.alreadydeployed != 'true' && startsWith(env.imagetype,'dataflow') && !startsWith(env.launcherimage,'Docker') }}
           run: |
             (cd src; cd ${{env.sourcepath}}; gcloud dataflow flex-template build gs://${{ fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id }}-dataflow-templates/${{matrix.function}}.json --image "us-central1-docker.pkg.dev/${{fromJson( steps.loadenv.outputs.envconfig ).gcp_project_id}}/github-tmp/${{matrix.function}}:${{env.tag}}" --sdk-language "${{env.imagesubtype}}" --metadata-file "metadata.json")
