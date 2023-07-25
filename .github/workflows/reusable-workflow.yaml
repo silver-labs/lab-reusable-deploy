@@ -342,9 +342,9 @@ jobs:
 
     # Checkout Terraform Modules
     - name: Checkout Terraform Modules
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
-        repository: silver-labs/ag-terraform-modules
+        repository: allegis-lab/ag-terraform-modules@v1.0s
         ssh-key: ${{ secrets.TERRAFORM_MODULE_KEY }}
         path: ag-terraform-modules
 
